@@ -1,7 +1,10 @@
 const router = require('express').Router();
 const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken'); // << make sure you install package `npm install jsonwebtoken`
+
 
 const Users = require('../users/users-model.js');
+const {jwtSecret} = require("../secrets.js")
 
 // for endpoints beginning with /api/auth
 router.post('/register', (req, res) => {
@@ -18,6 +21,7 @@ router.post('/register', (req, res) => {
     });
 });
 
+// place jwt in login 
 router.post('/login', (req, res) => {
   let { username, password } = req.body;
 
@@ -25,16 +29,36 @@ router.post('/login', (req, res) => {
     .first()
     .then(user => {
       if (user && bcrypt.compareSync(password, user.password)) {
+        const token = generateToken(user); //<<<<<< generate new token
+
         res.status(200).json({
           message: `Welcome ${user.username}!`,
+          token, // send the token
         });
       } else {
         res.status(401).json({ message: 'Invalid Credentials' });
       }
     })
-    .catch(error => {
-      res.status(500).json(error);
+    .catch(({name, code, message, stack}) => {
+      console.log(`${name, code, message, stack}`)
+      res.status(500).json({name, code, message, stack});
+      
     });
 });
+
+function generateToken(user){
+
+  const payload ={
+  subject: user.id,
+  username: user.username,
+  role: user.role || 'user',
+  };
+
+
+  const options = {
+    expiresIn: '1h' //<< how long is this this token going to be good for 
+  };
+  return jwt.sign(payload, jwtSecret, options)
+}
 
 module.exports = router;
